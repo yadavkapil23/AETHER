@@ -8,10 +8,10 @@ members = [
     "crates/encode",
     "crates/mixer",
     "crates/relay",
-    "crates/bench",
     "crates/aetherd",
+    "crates/aether-player",
 ]
-default-members = ["crates/aetherd"]
+default-members = ["crates/aetherd", "crates/aether-player"]
 resolver = "2"
 
 [workspace.package]
