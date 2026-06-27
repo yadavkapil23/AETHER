@@ -1,0 +1,62 @@
+[workspace]
+members = [
+    "crates/proto",
+    "crates/telemetry",
+    "crates/simd-codecs",
+    "crates/transport",
+    "crates/capture",
+    "crates/encode",
+    "crates/mixer",
+    "crates/relay",
+    "crates/gpu-pipeline",
+    "crates/bench",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["AETHER Team"]
+license = "MIT"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.38", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Networking
+bytes = "1.6"
+quinn = "0.11"
+rustls = { version = "0.23", features = ["ring"] }
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+hdrhistogram = "7.5"
+prometheus = "0.13"
+
+# Data structures
+dashmap = "6.0"
+uuid = { version = "1.8", features = ["v4", "serde"] }
+
+# Axum for HTTP endpoints
+axum = "0.7"
+
+# SIMD
+wide = "0.7"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Benchmarking (dev)
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Random (for test / probe simulation)
+rand = "0.8"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
