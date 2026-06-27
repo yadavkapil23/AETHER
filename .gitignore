@@ -1,0 +1,8 @@
+/target
+Cargo.lock
+*.DS_Store
+.env
+*.log
+criterion/
+flamegraph.svg
+perf.data
