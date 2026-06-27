@@ -37,5 +37,5 @@ pub mod tls;
 
 pub use adaptation::{AdaptationDecision, AdaptationState};
 pub use metrics::TransportMetrics;
-pub use probe::{NetworkProbe, ProbeTask};
+pub use probe::{NetworkProbe, ProbeConfig, ProbeTask};
 pub use router::{FrameRouter, RouterConfig};
