@@ -21,14 +21,15 @@ pub fn generate_self_signed_configs() -> Result<(ServerConfig, ClientConfig)> {
 
     let server_config = ServerConfig::with_single_cert(vec![cert_der.clone()], key_der)?;
 
-    // Client config that trusts our self-signed cert
     let client_config = {
         let mut roots = rustls::RootCertStore::empty();
         roots.add(cert_der)?;
         let config = rustls::ClientConfig::builder()
             .with_root_certificates(roots)
             .with_no_client_auth();
-        ClientConfig::new(Arc::new(config))
+        let quic_config = quinn::crypto::rustls::QuicClientConfig::try_from(config)
+            .map_err(|e| anyhow::anyhow!("invalid client config: {}", e))?;
+        ClientConfig::new(Arc::new(quic_config))
     };
 
     Ok((server_config, client_config))
