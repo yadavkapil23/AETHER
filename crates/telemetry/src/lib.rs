@@ -105,7 +105,7 @@ impl FrameTimings {
 ///
 /// `stage_deltas[i]` is the duration from [`PipelineStage::Capture`]+i to the next stage.
 /// Any `None` means one of the two boundary timestamps was never recorded.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FrameLatency {
     pub frame_id: FrameId,
     /// Durations in microseconds between consecutive stages
