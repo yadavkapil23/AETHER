@@ -1,0 +1,24 @@
+[package]
+name = "bench"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+simd-codecs = { path = "../simd-codecs" }
+transport   = { path = "../transport" }
+proto       = { path = "../proto" }
+telemetry   = { path = "../telemetry" }
+tokio       = { workspace = true }
+tracing     = { workspace = true }
+criterion   = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "pipeline_e2e"
+harness = false
+
+[[bench]]
+name = "codec_comparison"
+harness = false
