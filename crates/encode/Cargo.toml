@@ -1,11 +1,12 @@
-﻿[package]
+[package]
 name = "encode"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-proto      = { path = "../proto" }
-tokio      = { workspace = true }
-thiserror  = { workspace = true }
-tracing    = { workspace = true }
+proto       = { path = "../proto" }
+tokio       = { workspace = true }
+thiserror   = { workspace = true }
+tracing     = { workspace = true }
+openh264    = "0.5"
 async-trait = "0.1"
