@@ -11,7 +11,7 @@ use transport::{
 use transport::quic_path::QuicPath;
 use transport::srt_lite::SrtSender;
 use transport::tls::generate_self_signed_configs;
-use capture::{CaptureConfig, CaptureDevice, Resolution, TestCapture};
+use capture::{CaptureConfig, CaptureDevice, Resolution, NokhwaCapture};
 use encode::{Encoder, H264Encoder};
 
 #[derive(Parser, Debug)]
@@ -83,11 +83,11 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // 5. Setup Capture & Encode
-    let mut capture = TestCapture::new(CaptureConfig {
+    let mut capture = NokhwaCapture::open(CaptureConfig {
         fps: args.fps,
         resolution: Resolution::FHD,
         ..Default::default()
-    });
+    }).await?;
 
     let mut encoder = H264Encoder::new(CodecConfig {
         codec: proto::CodecType::H264,
