@@ -1,0 +1,10 @@
+[package]
+name = "mixer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+proto     = { path = "../proto" }
+tokio     = { workspace = true }
+thiserror = { workspace = true }
+tracing   = { workspace = true }
