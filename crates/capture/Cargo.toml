@@ -1,12 +1,14 @@
-﻿[package]
+[package]
 name = "capture"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 proto       = { path = "../proto" }
+simd-codecs = { path = "../simd-codecs" }
 tokio       = { workspace = true }
 thiserror   = { workspace = true }
 tracing     = { workspace = true }
 bytes       = { workspace = true }
+nokhwa      = { version = "0.10", features = ["input-native"] }
 async-trait = "0.1"
