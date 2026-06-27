@@ -8,6 +8,9 @@ use telemetry::{LatencyTracker, PrometheusExporter};
 use transport::{
     AdaptationDecision, FrameRouter, ProbeConfig, ProbeTask, RouterConfig, TransportMetrics,
 };
+use transport::quic_path::QuicPath;
+use transport::srt_lite::SrtSender;
+use transport::tls::generate_self_signed_configs;
 use capture::{CaptureConfig, CaptureDevice, Resolution, TestCapture};
 use encode::{Encoder, H264Encoder};
 
@@ -60,15 +63,22 @@ async fn main() -> anyhow::Result<()> {
     let (encoded_tx, encoded_rx) = mpsc::channel(64);
     tokio::spawn(router.run(encoded_rx));
 
-    // Sink tasks to drain the transport queues (simulating network send)
+    // 4.5. Real Network Senders
+    let (server_config, client_config) = generate_self_signed_configs()?;
+    let remote_quic: std::net::SocketAddr = "127.0.0.1:4433".parse()?;
+    let remote_srt: std::net::SocketAddr = "127.0.0.1:5000".parse()?;
+
+    let quic_path = QuicPath::new("0.0.0.0:0".parse()?, remote_quic, server_config, metrics.clone()).await?;
     tokio::spawn(async move {
-        while let Some(bytes) = quic_rx.recv().await {
-            tracing::trace!("Sent {} bytes over QUIC", bytes.len());
+        if let Err(e) = quic_path.run_sender(client_config, quic_rx).await {
+            tracing::error!("QUIC sender error: {}", e);
         }
     });
+
+    let srt_path = SrtSender::new("0.0.0.0:0".parse()?, remote_srt, metrics.clone());
     tokio::spawn(async move {
-        while let Some(bytes) = srt_rx.recv().await {
-            tracing::trace!("Sent {} bytes over SRT-lite", bytes.len());
+        if let Err(e) = srt_path.run(srt_rx).await {
+            tracing::error!("SRT sender error: {}", e);
         }
     });
 
