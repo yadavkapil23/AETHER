@@ -11,6 +11,8 @@ use transport::metrics::TransportMetrics;
 use transport::quic_path::QuicPath;
 use transport::srt_lite::SrtReceiver;
 use transport::tls::generate_self_signed_configs;
+use openh264::decoder::Decoder;
+use proto::EncodedFrame; // Need EncodedFrame if that's what the transport gives, but the channel is Bytes!
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -35,7 +37,6 @@ fn main() -> anyhow::Result<()> {
 
             // Listen for QUIC (keyframes)
             let quic_addr: SocketAddr = "0.0.0.0:4433".parse().unwrap();
-            // remote_addr is unused in run_receiver, pass dummy
             let dummy_remote: SocketAddr = "127.0.0.1:0".parse().unwrap(); 
             let quic_path = QuicPath::new(quic_addr, dummy_remote, server_config, metrics).await.unwrap();
             
@@ -65,8 +66,8 @@ fn main() -> anyhow::Result<()> {
     });
 
     // GUI Loop (must run on the main thread)
-    let width = 640;
-    let height = 360;
+    let mut width = 640;
+    let mut height = 360;
     let mut window = Window::new(
         "AETHER Receiver - Live Stream",
         width,
@@ -74,40 +75,72 @@ fn main() -> anyhow::Result<()> {
         WindowOptions::default(),
     )?;
 
-    // We don't have a real H.264 decoder in this stub, so we will visualize
-    // the incoming stream by generating a shifting color pattern based on
-    // frame arrival, proving the transport works at 60fps.
+    window.set_target_fps(60);
+
+    let api = openh264::OpenH264API::from_source();
+    let mut decoder = Decoder::new(api).unwrap();
+    
+    // We will allocate these dynamically when the first frame arrives
     let mut buffer: Vec<u32> = vec![0; width * height];
+    let mut rgb_buf: Vec<u8> = vec![0; width * height * 3];
+
     let mut frame_count = 0u32;
     let mut last_log = std::time::Instant::now();
     let mut bytes_received_sec = 0;
 
-    window.set_target_fps(60);
-
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        let mut got_new_frame = false;
+        
         // Drain all available frames from the network
         while let Ok(payload) = frame_rx.try_recv() {
             frame_count = frame_count.wrapping_add(1);
             bytes_received_sec += payload.len();
-        }
-
-        // Draw synthetic pattern to prove GUI update
-        for y in 0..height {
-            for x in 0..width {
-                // Shifting color pattern driven by the network frame_count
-                let r = ((x as u32 + frame_count * 2) % 255) as u8;
-                let g = ((y as u32 + frame_count * 2) % 255) as u8;
-                let b = 150u8;
-                
-                let pixel = ((r as u32) << 16) | ((g as u32) << 8) | (b as u32);
-                buffer[y * width + x] = pixel;
+            
+            // Actually decode the H.264 bitstream!
+            match decoder.decode(&payload) {
+                Ok(Some(yuv)) => {
+                    let (w, h) = yuv.dimension_rgb();
+                    
+                    // Resize buffers if the stream resolution changes
+                    if w != width || h != height {
+                        width = w;
+                        height = h;
+                        buffer.resize(width * height, 0);
+                        rgb_buf.resize(width * height * 3, 0);
+                    }
+                    
+                    // OpenH264 can convert to RGB8 for us
+                    yuv.write_rgb8(&mut rgb_buf);
+                    
+                    // Convert packed RGB to minifb's XRGB u32 format
+                    for (i, pixel) in rgb_buf.chunks_exact(3).enumerate() {
+                        let r = pixel[0] as u32;
+                        let g = pixel[1] as u32;
+                        let b = pixel[2] as u32;
+                        buffer[i] = (r << 16) | (g << 8) | b;
+                    }
+                    
+                    got_new_frame = true;
+                }
+                Ok(None) => {
+                    // Decoder needs more data (e.g. part of a frame or waiting for IDR)
+                }
+                Err(e) => {
+                    tracing::error!("Decode error: {}", e);
+                }
             }
         }
 
-        window.update_with_buffer(&buffer, width, height)?;
+        if got_new_frame {
+            window.update_with_buffer(&buffer, width, height)?;
+        } else {
+            // Update window to keep it responsive if no frames arrive
+            window.update();
+        }
 
         if last_log.elapsed() >= Duration::from_secs(1) {
-            info!("Received {} bytes in the last second, frame_count={}", bytes_received_sec, frame_count);
+            info!("Received {} bytes in the last second, decoded {} frames", bytes_received_sec, frame_count);
+            frame_count = 0; // reset for the log
             bytes_received_sec = 0;
             last_log = std::time::Instant::now();
         }
@@ -115,3 +148,4 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+
