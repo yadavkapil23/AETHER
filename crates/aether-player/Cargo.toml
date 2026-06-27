@@ -14,3 +14,5 @@ anyhow = { workspace = true }
 bytes = { workspace = true }
 quinn = { workspace = true }
 minifb = "0.27"
+openh264 = "0.5"
+simd-codecs = { path = "../simd-codecs" }
