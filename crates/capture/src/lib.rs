@@ -172,33 +172,6 @@ impl V4L2Capture {
     ///
     /// In the stub implementation no ioctl calls are made; the function logs
     /// the device path and returns immediately.  A real implementation would:
-    /// 1. `open(2)` the device node.
-    /// 2. Issue `VIDIOC_S_FMT` to set resolution and pixel format.
-    /// 3. Issue `VIDIOC_REQBUFS` to allocate kernel mmap buffers.
-    /// 4. Issue `VIDIOC_STREAMON` to start DMA.
-    ///
-    /// # Errors
-    /// Returns [`CaptureError::DeviceNotFound`] if the device path does not
-    /// exist, or [`CaptureError::PermissionDenied`] if the process lacks
-    /// access.  Both are stub TODOs; the current implementation always succeeds.
-    pub async fn open(config: CaptureConfig) -> Result<Self, CaptureError> {
-        tracing::info!(device = ?config.device_path, "V4L2Capture: opening (stub)");
-        Ok(Self { config, frame_counter: 0 })
-    }
-}
-
-#[async_trait::async_trait]
-impl CaptureDevice for V4L2Capture {
-    /// Returns a synthetic frame, simulating ~60 fps via a 16 ms sleep.
-    ///
-    /// # TODO
-    /// Replace with a real `poll(2)` / `VIDIOC_DQBUF` loop over the mmap ring.
-    async fn next_frame(&mut self) -> Result<RawFrame, CaptureError> {
-        // TODO: implement V4L2 mmap buffer capture via VIDIOC_DQBUF / VIDIOC_QBUF
-        tokio::time::sleep(std::time::Duration::from_millis(16)).await;
-        self.frame_counter += 1;
-        let pts_us = self.frame_counter * 16_667; // ~60 fps
-        Ok(RawFrame::synthetic(
             self.config.resolution.width,
             self.config.resolution.height,
             pts_us,
