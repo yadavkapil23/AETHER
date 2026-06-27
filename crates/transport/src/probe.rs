@@ -184,7 +184,6 @@ impl ProbeTask {
     /// Simulates a base RTT of 8ms with occasional loss spikes.
     async fn run_synthetic(self, mut state: AdaptationState) {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
         let mut tick = interval(self.config.probe_interval);
         let mut cycle = 0u64;
 
@@ -195,21 +194,21 @@ impl ProbeTask {
             // Every 200 probes (3.2s) simulate a 500ms loss episode
             let in_loss_episode = (cycle % 200) < 30;
             let loss_rate = if in_loss_episode {
-                rng.gen_range(0.005..0.02_f32) // 0.5–2% loss
+                rand::thread_rng().gen_range(0.005..0.02_f32) // 0.5–2% loss
             } else {
-                rng.gen_range(0.0..0.001_f32) // near-zero
+                rand::thread_rng().gen_range(0.0..0.001_f32) // near-zero
             };
 
             let base_rtt = if in_loss_episode {
-                Duration::from_millis(rng.gen_range(15..40))
+                Duration::from_millis(rand::thread_rng().gen_range(15..40))
             } else {
-                Duration::from_millis(rng.gen_range(4..10))
+                Duration::from_millis(rand::thread_rng().gen_range(4..10))
             };
 
             let probe = NetworkProbe {
                 rtt: base_rtt,
                 loss_rate,
-                jitter: Duration::from_micros(rng.gen_range(100..2000)),
+                jitter: Duration::from_micros(rand::thread_rng().gen_range(100..2000)),
             };
 
             let changed = state.update(&probe);
