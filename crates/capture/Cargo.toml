@@ -1,0 +1,12 @@
+﻿[package]
+name = "capture"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+proto       = { path = "../proto" }
+tokio       = { workspace = true }
+thiserror   = { workspace = true }
+tracing     = { workspace = true }
+bytes       = { workspace = true }
+async-trait = "0.1"
