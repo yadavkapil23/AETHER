@@ -1,7 +1,6 @@
-# AETHER
+# FLUX
 
-> **Sub-50ms live streaming pipeline in Rust** — hybrid QUIC/SRT transport,
-> AVX2-accelerated codec path, per-frame telemetry with HDR histograms.
+FLUX ,a sub-50ms glass-to-glass live streaming engine written entirely in Rust. It bypasses traditional WebRTC overhead by using a custom hybrid > QUIC and UDP transport layer to guarantee ultra-low latency."
 
 [![Rust](https://img.shields.io/badge/rust-1.78+-orange.svg)](https://www.rust-lang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -15,7 +14,7 @@
 - Pure UDP solutions drop packets gracefully but risk dropping critical keyframes (I-frames), causing complete decoder corruption and forcing viewers to wait seconds for a new keyframe.
 - When networks get congested, latency spikes unpredictably, ruining highly interactive experiences (e.g., cloud gaming, live auctions, or real-time remote operation).
 
-**The Solution:** AETHER achieves sub-50ms latency by splitting the video stream at the transport layer using a **hybrid routing architecture** driven by a continuous 16ms feedback loop.
+**The Solution:** FLUX achieves sub-50ms latency by splitting the video stream at the transport layer using a **hybrid routing architecture** driven by a continuous 16ms feedback loop.
 - **Keyframes** are routed over a reliable QUIC stream. They are guaranteed to arrive in order, ensuring the decoder is never corrupted.
 - **P-frames** (predictive frames) are routed over a custom, lightweight SRT-lite protocol (UDP + selective ARQ). If they arrive too late, they are simply dropped, allowing the video to stutter momentarily rather than pausing the entire stream.
 - A 16ms **Network Probe** constantly monitors Round Trip Time (RTT) and packet loss. If loss exceeds 0.5%, the system dynamically upgrades all P-frames to QUIC to preserve quality. When the network recovers, it demotes them back to SRT-lite to minimise latency.
@@ -49,7 +48,7 @@ p99:  67 ms  ██████████████████████�
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         AETHER Pipeline                                     │
+│                         FLUX Pipeline                                     │
 │                                                                             │
 │  [capture] ──► [simd-codecs] ──► [encode] ──► [transport] ──► [relay]      │
 │     │              │               │               │              │         │
@@ -136,7 +135,7 @@ FFmpeg is a transcoding pipeline — it assumes encode→transmux→mux. Every f
 2. **No feedback loop**: FFmpeg has no built-in mechanism to adjust transport path based on real-time loss measurement.
 3. **C codebase**: no ownership semantics — buffer aliasing bugs are common in custom filter integrations.
 
-AETHER routes at the frame level, can swap paths mid-stream, and the borrow checker proves there are no data races across the async tasks.
+FLUX routes at the frame level, can swap paths mid-stream, and the borrow checker proves there are no data races across the async tasks.
 
 ---
 
@@ -144,7 +143,7 @@ AETHER routes at the frame level, can swap paths mid-stream, and the borrow chec
 
 WebRTC solves a different problem: browser interop and NAT traversal. It brings real costs:
 
-| | WebRTC | AETHER |
+| | WebRTC | FLUX |
 |---|--------|--------|
 | Control plane | DTLS-SRTP (hand-shakes per peer) | QUIC (0-RTT resume) |
 | Media path | SRTP over UDP | SRT-lite + QUIC hybrid |
@@ -153,7 +152,7 @@ WebRTC solves a different problem: browser interop and NAT traversal. It brings 
 | Latency target | ~150ms (browser buffering) | **<50ms (p99)** |
 | Codec negotiation | SDP offer/answer (2+ RTT) | Static config at session start |
 
-WebRTC's transport is not designed for the p99 < 50ms constraint. AETHER is.
+WebRTC's transport is not designed for the p99 < 50ms constraint. FLUX is.
 
 ---
 
