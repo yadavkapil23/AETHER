@@ -8,6 +8,20 @@
 
 ---
 
+## Problem Statement
+
+**The Problem:** Traditional live streaming protocols (like HLS, RTMP, or even pure WebRTC) force a harsh trade-off between latency and quality under turbulent network conditions. 
+- TCP-based solutions suffer from head-of-line blocking: if a single packet is lost, the entire stream stalls until it is retransmitted.
+- Pure UDP solutions drop packets gracefully but risk dropping critical keyframes (I-frames), causing complete decoder corruption and forcing viewers to wait seconds for a new keyframe.
+- When networks get congested, latency spikes unpredictably, ruining highly interactive experiences (e.g., cloud gaming, live auctions, or real-time remote operation).
+
+**The Solution:** AETHER achieves sub-50ms latency by splitting the video stream at the transport layer using a **hybrid routing architecture** driven by a continuous 16ms feedback loop.
+- **Keyframes** are routed over a reliable QUIC stream. They are guaranteed to arrive in order, ensuring the decoder is never corrupted.
+- **P-frames** (predictive frames) are routed over a custom, lightweight SRT-lite protocol (UDP + selective ARQ). If they arrive too late, they are simply dropped, allowing the video to stutter momentarily rather than pausing the entire stream.
+- A 16ms **Network Probe** constantly monitors Round Trip Time (RTT) and packet loss. If loss exceeds 0.5%, the system dynamically upgrades all P-frames to QUIC to preserve quality. When the network recovers, it demotes them back to SRT-lite to minimise latency.
+
+---
+
 ## Benchmark Results
 
 | Test | Scalar | AVX2 | Speedup |
