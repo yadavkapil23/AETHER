@@ -1,0 +1,16 @@
+[package]
+name = "telemetry"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+proto = { path = "../proto" }
+hdrhistogram = { workspace = true }
+dashmap = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+prometheus = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
