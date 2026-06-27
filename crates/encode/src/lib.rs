@@ -67,12 +67,10 @@ impl H264Encoder {
         
         let mut enc_config = openh264::encoder::EncoderConfig::new(config.width, config.height);
         enc_config.set_bitrate_bps(config.bitrate_kbps * 1000);
-        enc_config.set_framerate(config.fps as f32);
-        
-        // Disable frame skipping to ensure low latency
-        enc_config.set_frame_skip(false);
+        enc_config.max_frame_rate(config.fps as f32);
 
-        let encoder = openh264::encoder::Encoder::with_config(enc_config)
+        let api = openh264::OpenH264API::from_source();
+        let encoder = openh264::encoder::Encoder::with_config(api, enc_config)
             .map_err(|e| EncodeError::EncodeFailed(e.to_string()))?;
 
         tracing::info!(
@@ -115,13 +113,31 @@ impl Encoder for H264Encoder {
         let u = &frame.data[y_size..y_size + uv_size];
         let v = &frame.data[y_size + uv_size..y_size + 2 * uv_size];
         
-        let yuv = openh264::formats::YUVSource::new(
-            self.config.width as usize,
-            self.config.height as usize,
+        struct YuvWrapper<'a> {
+            width: i32,
+            height: i32,
+            y: &'a [u8],
+            u: &'a [u8],
+            v: &'a [u8],
+        }
+        impl<'a> openh264::formats::YUVSource for YuvWrapper<'a> {
+            fn width(&self) -> i32 { self.width }
+            fn height(&self) -> i32 { self.height }
+            fn y(&self) -> &[u8] { self.y }
+            fn u(&self) -> &[u8] { self.u }
+            fn v(&self) -> &[u8] { self.v }
+            fn y_stride(&self) -> i32 { self.width }
+            fn u_stride(&self) -> i32 { self.width / 2 }
+            fn v_stride(&self) -> i32 { self.width / 2 }
+        }
+        
+        let yuv = YuvWrapper {
+            width: self.config.width as i32,
+            height: self.config.height as i32,
             y,
             u,
             v,
-        );
+        };
         
         // Execute the encode
         let bitstream = if is_keyframe {
@@ -169,6 +185,4 @@ impl Encoder for H264Encoder {
     fn stats(&self) -> EncoderStats {
         self.stats.clone()
     }
-}
-
 }
