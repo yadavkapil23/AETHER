@@ -5,7 +5,7 @@ AETHER is a Python/FastAPI LLM gateway and inference orchestration service. It s
 ## What It Includes
 
 - FastAPI gateway with `/infer`, `/infer/stream`, and OpenAI-style `/v1/chat/completions`
-- Backend fallback order: `vLLM -> llama.cpp HTTP -> Ollama -> HuggingFace`
+- Backend fallback order: `Ollama -> HuggingFace`
 - API key and JWT authentication
 - Per-client token-bucket rate limiting
 - In-process KV-cache block scheduler
@@ -76,8 +76,6 @@ GATEWAY_PORT=8080
 RATE_LIMIT_RPS=100
 GATEWAY_TIMEOUT=30
 
-VLLM_ENDPOINT=http://localhost:8000
-LLAMACPP_ENDPOINT=http://localhost:8001
 OLLAMA_ENDPOINT=http://localhost:11434
 HUGGINGFACE_API_KEY=
 HUGGINGFACE_ENDPOINT=https://api-inference.huggingface.co/models
@@ -122,7 +120,7 @@ curl -X POST http://localhost:8080/v1/allocate `
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/infer` | Synchronous LLM inference |
-| POST | `/infer/stream` | SSE streaming inference via vLLM-compatible backend |
+| POST | `/infer/stream` | SSE streaming inference via Ollama-compatible backend |
 | POST | `/v1/chat/completions` | OpenAI-style chat completion response |
 | POST | `/v1/allocate` | Allocate KV-cache blocks |
 | POST | `/v1/deallocate` | Release KV-cache blocks |
