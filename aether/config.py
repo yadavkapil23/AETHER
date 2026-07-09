@@ -20,8 +20,6 @@ class Settings(BaseSettings):
     gateway_timeout: float = Field(30.0, alias="GATEWAY_TIMEOUT")
     gateway_cache_size: int = Field(1000, alias="GATEWAY_CACHE_SIZE")
 
-    vllm_endpoint: str = Field("http://localhost:8000", alias="VLLM_ENDPOINT")
-    llamacpp_endpoint: str = Field("http://localhost:8001", alias="LLAMACPP_ENDPOINT")
     ollama_endpoint: str = Field("http://localhost:11434", alias="OLLAMA_ENDPOINT")
     huggingface_endpoint: str = Field(
         "https://api-inference.huggingface.co/models",
