@@ -36,8 +36,6 @@ class GatewayState:
         self.audit = AuditTrail()
         self.scheduler = Scheduler(settings.cache_bytes, settings.block_size)
         self.llm = LLMBackend(
-            settings.vllm_endpoint,
-            settings.llamacpp_endpoint,
             settings.ollama_endpoint,
             settings.huggingface_endpoint,
             settings.huggingface_api_key,
@@ -128,7 +126,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/infer/stream", dependencies=[Depends(require_auth)])
     async def infer_stream(req: InferenceRequest, app_state: GatewayState = Depends(aether_state)):
-        url = f"{app_state.settings.vllm_endpoint.rstrip('/')}/v1/completions"
+        url = f"{app_state.settings.ollama_endpoint.rstrip('/')}/v1/completions"
         payload = {
             "model": req.model,
             "prompt": req.prompt,
