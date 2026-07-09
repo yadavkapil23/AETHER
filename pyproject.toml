@@ -1,0 +1,36 @@
+[project]
+name = "aether-python"
+version = "0.1.0"
+description = "Python port of the AETHER LLM gateway and KV-cache scheduler"
+requires-python = ">=3.10"
+dependencies = [
+    "asyncpg>=0.29.0",
+    "blake3>=0.4.1",
+    "fastapi>=0.115.0",
+    "httpx>=0.27.0",
+    "prometheus-client>=0.20.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "pyjwt>=2.8.0",
+    "python-dotenv>=1.0.1",
+    "structlog>=24.1.0",
+    "uvicorn[standard]>=0.30.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.5.0",
+]
+
+[project.scripts]
+aether-gateway = "aether.gateway:main"
+aether-scheduler = "aether.scheduler_api:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests_python"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
