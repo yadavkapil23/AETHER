@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: aether_gateway
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/aether_gateway
+      JWT_SECRET: dev-secret-for-local-testing
+      API_KEYS: sk-demo123
+      OLLAMA_ENDPOINT: http://host.docker.internal:11434
+      VLLM_ENDPOINT: http://host.docker.internal:8000
+      LLAMACPP_ENDPOINT: http://host.docker.internal:8001
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
