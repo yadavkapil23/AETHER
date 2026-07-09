@@ -40,8 +40,6 @@ services:
       JWT_SECRET: dev-secret-for-local-testing
       API_KEYS: sk-demo123
       OLLAMA_ENDPOINT: http://host.docker.internal:11434
-      VLLM_ENDPOINT: http://host.docker.internal:8000
-      LLAMACPP_ENDPOINT: http://host.docker.internal:8001
     depends_on:
       - postgres
 
