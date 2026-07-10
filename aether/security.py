@@ -58,7 +58,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.buckets: dict[str, Bucket] = defaultdict(lambda: Bucket(self.rps, time.monotonic()))
 
     async def dispatch(self, request: Request, call_next):
-        client = request.client.host if request.client else "unknown"
+        api_key = request.headers.get("x-api-key")
+        client_id = request.headers.get("x-client-id")
+        client = api_key or client_id or (request.client.host if request.client else "unknown")
         now = time.monotonic()
         bucket = self.buckets[client]
         elapsed = now - bucket.updated_at

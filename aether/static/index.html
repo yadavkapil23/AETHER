@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AETHER Gateway</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+  h1 { font-size: 1.4rem; }
+  label { display: block; margin-top: 12px; font-weight: 600; font-size: 0.9rem; }
+  input, textarea, select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; font-family: inherit; }
+  textarea { min-height: 100px; }
+  button { margin-top: 16px; padding: 10px 20px; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #output { margin-top: 20px; padding: 12px; background: #f4f4f4; border-radius: 6px; white-space: pre-wrap; min-height: 40px; }
+  #meta { margin-top: 8px; font-size: 0.85rem; color: #555; }
+  .error { color: #b00020; }
+</style>
+</head>
+<body>
+  <h1>AETHER Gateway</h1>
+
+  <label for="clientId">Your name (used to keep your rate limit separate from teammates)</label>
+  <input id="clientId" type="text" placeholder="e.g. alice" />
+
+  <label for="backend">Backend</label>
+  <select id="backend">
+    <option value="ollama" selected>Ollama (no API key needed)</option>
+    <option value="huggingface">HuggingFace (API key required)</option>
+  </select>
+
+  <label for="apiKey">API Key (only required for HuggingFace)</label>
+  <input id="apiKey" type="text" value="sk-demo123" />
+
+  <label for="model">Model</label>
+  <input id="model" type="text" value="qwen2.5:0.5b" />
+
+  <label for="prompt">Prompt</label>
+  <textarea id="prompt" placeholder="Type a prompt..."></textarea>
+
+  <label for="maxTokens">Max tokens</label>
+  <input id="maxTokens" type="number" value="200" min="1" max="32000" />
+
+  <button id="sendBtn" onclick="sendPrompt()">Send</button>
+
+  <div id="output"></div>
+  <div id="meta"></div>
+
+<script>
+async function sendPrompt() {
+  const btn = document.getElementById('sendBtn');
+  const output = document.getElementById('output');
+  const meta = document.getElementById('meta');
+  const clientId = document.getElementById('clientId').value;
+  const backend = document.getElementById('backend').value;
+  const apiKey = document.getElementById('apiKey').value;
+  const model = document.getElementById('model').value;
+  const prompt = document.getElementById('prompt').value;
+  const maxTokens = parseInt(document.getElementById('maxTokens').value, 10);
+
+  output.textContent = '';
+  meta.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (backend === 'huggingface' && apiKey) headers['X-API-Key'] = apiKey;
+  if (clientId) headers['X-Client-Id'] = clientId;
+
+  try {
+    const res = await fetch('/infer', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model, prompt, max_tokens: maxTokens, backend }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      output.innerHTML = '<span class="error">Error ' + res.status + ': ' + (data.error || data.detail || 'request failed') + '</span>';
+      return;
+    }
+
+    if (!data.success) {
+      output.innerHTML = '<span class="error">' + (data.error || 'inference failed') + '</span>';
+      return;
+    }
+
+    output.textContent = data.output;
+    meta.textContent = 'backend: ' + data.backend + ' | tokens: ' + data.tokens_generated + ' | latency: ' + data.latency_ms + 'ms';
+  } catch (err) {
+    output.innerHTML = '<span class="error">Network error: ' + err.message + '</span>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send';
+  }
+}
+</script>
+</body>
+</html>
