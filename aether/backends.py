@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import httpx
 
+from aether.resilience import CircuitBreaker
+
 
 @dataclass
 class InferenceResult:
@@ -13,25 +15,6 @@ class InferenceResult:
     total_tokens: int
     backend: str
     latency_ms: int
-
-
-class CircuitBreaker:
-    def __init__(self, failure_threshold: int = 5) -> None:
-        self.failure_threshold = failure_threshold
-        self.failure_count = 0
-        self.state = "closed"
-
-    def allow(self) -> bool:
-        return self.state != "open"
-
-    def success(self) -> None:
-        self.failure_count = 0
-        self.state = "closed"
-
-    def failure(self) -> None:
-        self.failure_count += 1
-        if self.failure_count >= self.failure_threshold:
-            self.state = "open"
 
 
 class LLMBackend:
@@ -47,7 +30,7 @@ class LLMBackend:
         self.huggingface_api_key = huggingface_api_key
         self.timeout = timeout
         self.client = httpx.AsyncClient(timeout=timeout)
-        self.breakers = {
+        self.breakers: dict[str, CircuitBreaker] = {
             "Ollama": CircuitBreaker(),
             "HuggingFace": CircuitBreaker(),
         }
@@ -71,14 +54,14 @@ class LLMBackend:
         for name, method in attempts:
             if name == "HuggingFace" and not self.huggingface_api_key:
                 continue
-            if not self.breakers[name].allow():
+            if not await self.breakers[name].allow():
                 continue
             try:
                 result = await method(model, prompt, max_tokens, temperature, top_p)
-                self.breakers[name].success()
+                await self.breakers[name].record_success()
                 return result
             except Exception as exc:
-                self.breakers[name].failure()
+                await self.breakers[name].record_failure()
                 last_error = exc
         raise RuntimeError(f"all inference backends failed: {last_error}")
 
@@ -164,12 +147,12 @@ class LLMBackend:
             "ollama": {
                 "endpoint": self.ollama_endpoint,
                 "healthy": await ok(f"{self.ollama_endpoint}/api/tags"),
-                "circuit_breaker_state": self.breakers["Ollama"].state,
+                "circuit_breaker": (await self.breakers["Ollama"].metrics()).__dict__,
             },
             "huggingface": {
                 "endpoint": self.huggingface_endpoint,
                 "healthy": bool(self.huggingface_api_key),
-                "circuit_breaker_state": self.breakers["HuggingFace"].state,
+                "circuit_breaker": (await self.breakers["HuggingFace"].metrics()).__dict__,
             },
         }
 
