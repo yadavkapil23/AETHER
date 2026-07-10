@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aether-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aether-gateway
+  template:
+    metadata:
+      labels:
+        app: aether-gateway
+    spec:
+      containers:
+        - name: aether-gateway
+          image: aether-gateway:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: aether-config
+            - secretRef:
+                name: aether-secrets
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
