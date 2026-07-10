@@ -3,12 +3,14 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from aether.audit import AuditTrail, new_audit_event
 from aether.backends import LLMBackend
@@ -69,6 +71,12 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RateLimitMiddleware, rps=settings.rate_limit_rps, metrics=state.metrics)
 
+    static_dir = Path(__file__).parent / "static"
+
+    @app.get("/", include_in_schema=False)
+    async def ui_index() -> FileResponse:
+        return FileResponse(static_dir / "index.html")
+
     async def require_auth(request: Request) -> None:
         await request.app.state.aether.auth.validate(request)
 
@@ -79,12 +87,14 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     async def http_exception_handler(_: Request, exc: HTTPException):
         return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
 
-    @app.post("/infer", response_model=InferenceResponse, dependencies=[Depends(require_auth)])
-    async def infer(req: InferenceRequest, app_state: GatewayState = Depends(aether_state)):
+    @app.post("/infer", response_model=InferenceResponse)
+    async def infer(req: InferenceRequest, request: Request, app_state: GatewayState = Depends(aether_state)):
+        if req.backend == "huggingface":
+            await require_auth(request)
         start = time.perf_counter()
         try:
             result = await app_state.llm.infer(
-                req.model, req.prompt, req.max_tokens, req.temperature, req.top_p
+                req.model, req.prompt, req.max_tokens, req.temperature, req.top_p, req.backend
             )
             latency_ms = int((time.perf_counter() - start) * 1000)
             app_state.metrics.record_inference_success(
