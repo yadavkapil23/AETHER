@@ -42,6 +42,7 @@ class GatewayState:
             settings.huggingface_endpoint,
             settings.huggingface_api_key,
             settings.gateway_timeout,
+            settings.health_check_timeout,
         )
         self.auth = ApiKeyValidator(settings.fallback_api_keys, settings.jwt_secret, self.database)
 
@@ -134,8 +135,12 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             )
             raise HTTPException(status_code=502, detail=f"inference failed: {exc}") from exc
 
-    @app.post("/infer/stream", dependencies=[Depends(require_auth)])
-    async def infer_stream(req: InferenceRequest, app_state: GatewayState = Depends(aether_state)):
+    @app.post("/infer/stream")
+    async def infer_stream(req: InferenceRequest, request: Request, app_state: GatewayState = Depends(aether_state)):
+        if req.backend == "huggingface":
+            await require_auth(request)
+            raise HTTPException(status_code=400, detail="streaming is only supported for the ollama backend")
+
         url = f"{app_state.settings.ollama_endpoint.rstrip('/')}/v1/completions"
         payload = {
             "model": req.model,
@@ -147,7 +152,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         }
 
         async def stream():
-            async with httpx.AsyncClient(timeout=120) as client:
+            async with httpx.AsyncClient(timeout=app_state.settings.stream_timeout) as client:
                 async with client.stream("POST", url, json=payload) as response:
                     response.raise_for_status()
                     async for line in response.aiter_lines():
@@ -157,10 +162,12 @@ def build_app(settings: Settings | None = None) -> FastAPI:
 
         return StreamingResponse(stream(), media_type="text/event-stream")
 
-    @app.post("/v1/chat/completions", dependencies=[Depends(require_auth)])
+    @app.post("/v1/chat/completions")
     async def chat_completions(
-        req: ChatCompletionRequest, app_state: GatewayState = Depends(aether_state)
+        req: ChatCompletionRequest, request: Request, app_state: GatewayState = Depends(aether_state)
     ):
+        if req.backend == "huggingface":
+            await require_auth(request)
         if not req.messages:
             raise HTTPException(status_code=400, detail="messages cannot be empty")
         prompt = "\n".join(f"{message.role}: {message.content}" for message in req.messages)
@@ -170,6 +177,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             req.max_tokens or 1024,
             req.temperature,
             req.top_p,
+            req.backend,
         )
         return {
             "id": f"chatcmpl-{uuid.uuid4()}",
@@ -235,7 +243,10 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/keys", dependencies=[Depends(require_auth)])
     async def create_api_key(body: dict, app_state: GatewayState = Depends(aether_state)):
         key = body.get("key") or f"sk-{uuid.uuid4().hex}"
-        row = await app_state.database.add_api_key(key, body.get("name"))
+        try:
+            row = await app_state.database.add_api_key(key, body.get("name"))
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         row["key"] = mask_key(row["key"])
         return row
 
