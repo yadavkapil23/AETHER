@@ -11,6 +11,145 @@ Client → AETHER → Ollama (local, no external auth)
 
 AETHER does not train, fine-tune, or improve any model. The text generation quality is entirely whatever Ollama or HuggingFace already produce. What AETHER adds is everything *around* that call: reliability, access control, and observability.
 
+## Diagrams
+
+### System overview
+
+```mermaid
+flowchart LR
+    Client --> Gateway[AETHER Gateway]
+    Gateway --> Ollama[Ollama<br/>local, no auth]
+    Gateway --> HF[HuggingFace<br/>external API, requires key]
+```
+
+### Layered view
+
+Auth is drawn separately from the global middleware stack because, unlike rate limiting, it is not middleware — it is a per-route dependency invoked conditionally inside the handler, only when `backend == "huggingface"`.
+
+```mermaid
+flowchart TB
+    subgraph Clients
+        C1[Client 1]
+        C2[Client 2]
+        CN[Client N]
+    end
+
+    subgraph Gateway["Gateway (gateway.py)"]
+        RL[RateLimitMiddleware<br/>global, all requests]
+        H["/infer, /infer/stream,<br/>/v1/chat/completions handlers"]
+        AUTH{"backend ==<br/>huggingface?"}
+        LLM[LLMBackend.infer]
+    end
+
+    subgraph Resilience["backends.py"]
+        CB[CircuitBreaker.call]
+        RT["retry() — up to 3 attempts,<br/>exponential backoff + jitter"]
+    end
+
+    subgraph Persistence
+        AUDIT[audit.py<br/>BLAKE3 hash chain, in-memory]
+        DB[(PostgreSQL<br/>optional)]
+        CACHE[scheduler.py<br/>KVCacheAllocator, in-process]
+    end
+
+    C1 & C2 & CN --> RL --> H --> AUTH
+    AUTH -- "yes: require_auth()" --> LLM
+    AUTH -- "no: skip auth" --> LLM
+    LLM --> CB --> RT
+    RT --> Backends
+    H --> AUDIT
+    AUDIT -.-> DB
+    H --> CACHE
+
+    subgraph Backends
+        OL[Ollama :11434]
+        HFAPI[HuggingFace API]
+    end
+```
+
+### `/infer` request flow — Ollama backend (default, no auth)
+
+```mermaid
+flowchart TD
+    A[Client request<br/>backend: ollama] --> B[RateLimitMiddleware<br/>bucket on X-API-Key / X-Client-Id / IP]
+    B --> C["/infer handler<br/>auth skipped"]
+    C --> D[LLMBackend.infer]
+    D --> E{CircuitBreaker Ollama<br/>state}
+    E -- open --> F[Fail fast, no request sent]
+    E -- closed / half-open --> G[retry: attempt HTTP POST]
+    G -- success --> H[Log to audit.py + database.py]
+    G -- failure --> I{attempts < 3?}
+    I -- yes --> J[Wait backoff + jitter] --> G
+    I -- no --> K[Raise, circuit breaker records failure]
+    H --> L[Return 200 to client]
+    F --> M[Return 502 to client]
+    K --> M
+```
+
+### `/infer` request flow — HuggingFace backend (auth required)
+
+```mermaid
+flowchart TD
+    A[Client request<br/>backend: huggingface] --> B[RateLimitMiddleware<br/>bucket on X-API-Key]
+    B --> C["/infer handler<br/>require_auth called"]
+    C --> D{API key or JWT valid?}
+    D -- no --> E[401 Unauthorized]
+    D -- yes --> F[LLMBackend.infer]
+    F --> G{CircuitBreaker HuggingFace<br/>state}
+    G -- open --> H[Fail fast]
+    G -- closed / half-open --> I[retry: HTTP POST with<br/>Authorization: Bearer HUGGINGFACE_API_KEY]
+    I -- success --> J[Log to audit.py + database.py]
+    I -- failure, retries exhausted --> K[Raise]
+    J --> L[Return 200]
+    H --> M[Return 502]
+    K --> M
+```
+
+### Circuit breaker state machine (`resilience/circuit_breaker.py`)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open: consecutive failures ≥ threshold,<br/>or failure rate ≥ threshold over sample window
+    Open --> HalfOpen: timeout_secs elapsed
+    HalfOpen --> Closed: enough consecutive successes
+    HalfOpen --> Open: any failure
+    Closed --> Closed: success (resets failure count)
+```
+
+### Rate limiter bucket selection (`security.py`)
+
+```mermaid
+flowchart TD
+    A[Incoming request] --> B{X-API-Key present?}
+    B -- yes --> C[Bucket key = API key]
+    B -- no --> D{X-Client-Id present?}
+    D -- yes --> E[Bucket key = client id]
+    D -- no --> F[Bucket key = source IP]
+    C & E & F --> G{Tokens available<br/>in bucket?}
+    G -- yes --> H[Consume token, allow request]
+    G -- no --> I[429 rate limit exceeded]
+```
+
+### KV-cache allocation (`scheduler.py`)
+
+Single-node, in-process only — `_owners` and `_free` are plain Python structures guarded by a thread lock, not shared across machines.
+
+```mermaid
+flowchart LR
+    subgraph KVCacheAllocator
+        FREE[Free block deque]
+        OWNERS[Owners dict:<br/>block_id → request_id]
+    end
+
+    ALLOC[allocate request_id, num_blocks] -->|pop N blocks| FREE
+    FREE -->|assign owner| OWNERS
+    ALLOC -->|return block_ids| OUT1[Response]
+
+    DEALLOC[deallocate block_ids] -->|remove from| OWNERS
+    OWNERS -->|push back| FREE
+```
+
 ## Why put something in the middle at all
 
 A raw call to Ollama gives you none of the following. AETHER exists to add:
