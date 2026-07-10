@@ -1,10 +1,9 @@
-import asyncio
 import time
 from dataclasses import dataclass
 
 import httpx
 
-from aether.resilience import CircuitBreaker
+from aether.resilience import CircuitBreaker, RetryError, retry
 
 
 @dataclass
@@ -66,16 +65,22 @@ class LLMBackend:
         raise RuntimeError(f"all inference backends failed: {last_error}")
 
     async def _post_json(self, url: str, payload: dict, headers: dict | None = None) -> dict | list:
-        last_error: Exception | None = None
-        for attempt in range(3):
-            try:
-                response = await self.client.post(url, json=payload, headers=headers)
-                response.raise_for_status()
-                return response.json()
-            except Exception as exc:
-                last_error = exc
-                await asyncio.sleep(min(0.1 * (2**attempt), 1.0))
-        raise RuntimeError(str(last_error))
+        async def _do_post() -> dict | list:
+            response = await self.client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            return response.json()
+
+        try:
+            return await retry(
+                _do_post,
+                max_attempts=3,
+                initial_backoff=0.1,
+                max_backoff=1.0,
+                backoff_multiplier=2.0,
+                jitter=True,
+            )
+        except RetryError as exc:
+            raise RuntimeError(str(exc.last_exception)) from exc
 
 
 
@@ -147,12 +152,12 @@ class LLMBackend:
             "ollama": {
                 "endpoint": self.ollama_endpoint,
                 "healthy": await ok(f"{self.ollama_endpoint}/api/tags"),
-                "circuit_breaker": (await self.breakers["Ollama"].metrics()).__dict__,
+                "circuit_breaker": await self.breakers["Ollama"].metrics(),
             },
             "huggingface": {
                 "endpoint": self.huggingface_endpoint,
                 "healthy": bool(self.huggingface_api_key),
-                "circuit_breaker": (await self.breakers["HuggingFace"].metrics()).__dict__,
+                "circuit_breaker": await self.breakers["HuggingFace"].metrics(),
             },
         }
 
