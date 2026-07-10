@@ -33,6 +33,7 @@ class ChatCompletionRequest(BaseModel):
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     top_p: float | None = Field(default=None, ge=0.0, le=1.0)
     stream: bool | None = False
+    backend: Literal["ollama", "huggingface"] = "ollama"
 
 
 class AllocateRequest(BaseModel):
