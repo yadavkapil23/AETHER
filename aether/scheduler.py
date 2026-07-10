@@ -80,8 +80,6 @@ class Scheduler:
     def cluster_health(self) -> dict:
         return {
             "healthy": True,
-            "total_nodes": 1,
-            "healthy_nodes": 1,
-            "leader_id": self.node_id,
+            "node_id": self.node_id,
         }
 
