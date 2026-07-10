@@ -23,11 +23,13 @@ class LLMBackend:
         huggingface_endpoint: str,
         huggingface_api_key: str | None,
         timeout: float,
+        health_check_timeout: float = 5.0,
     ) -> None:
         self.ollama_endpoint = ollama_endpoint.rstrip("/")
         self.huggingface_endpoint = huggingface_endpoint.rstrip("/")
         self.huggingface_api_key = huggingface_api_key
         self.timeout = timeout
+        self.health_check_timeout = health_check_timeout
         self.client = httpx.AsyncClient(timeout=timeout)
         self.breakers: dict[str, CircuitBreaker] = {
             "Ollama": CircuitBreaker(),
@@ -139,7 +141,7 @@ class LLMBackend:
     async def health(self) -> dict:
         async def ok(url: str) -> bool:
             try:
-                response = await self.client.get(url, timeout=5)
+                response = await self.client.get(url, timeout=self.health_check_timeout)
                 return response.is_success
             except Exception:
                 return False
