@@ -44,25 +44,21 @@ class LLMBackend:
         max_tokens: int,
         temperature: float | None,
         top_p: float | None,
+        backend: str = "ollama",
     ) -> InferenceResult:
-        attempts = [
-            ("Ollama", self._ollama_infer),
-            ("HuggingFace", self._hf_infer),
-        ]
-        last_error: Exception | None = None
-        for name, method in attempts:
-            if name == "HuggingFace" and not self.huggingface_api_key:
-                continue
-            if not await self.breakers[name].allow():
-                continue
-            try:
-                result = await method(model, prompt, max_tokens, temperature, top_p)
-                await self.breakers[name].record_success()
-                return result
-            except Exception as exc:
-                await self.breakers[name].record_failure()
-                last_error = exc
-        raise RuntimeError(f"all inference backends failed: {last_error}")
+        if backend == "huggingface":
+            if not self.huggingface_api_key:
+                raise RuntimeError("HuggingFace backend requested but HUGGINGFACE_API_KEY is not configured")
+            name, method = "HuggingFace", self._hf_infer
+        else:
+            name, method = "Ollama", self._ollama_infer
+
+        try:
+            return await self.breakers[name].call(
+                method(model, prompt, max_tokens, temperature, top_p)
+            )
+        except Exception as exc:
+            raise RuntimeError(f"{name} backend failed: {exc}") from exc
 
     async def _post_json(self, url: str, payload: dict, headers: dict | None = None) -> dict | list:
         async def _do_post() -> dict | list:
