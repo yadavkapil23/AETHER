@@ -1,38 +1,65 @@
-"""Retry handler with exponential backoff and optional jitter."""
-import asyncio
+"""Retry handler with exponential backoff and jitter."""
+
 import random
-from typing import Callable, Coroutine, Any
+import asyncio
+from typing import Awaitable, Callable, TypeVar, Tuple, Type
 
-class RetryHandler:
-    def __init__(self, max_attempts: int = 5, initial_backoff_ms: int = 100,
-                 max_backoff_ms: int = 2000, backoff_multiplier: float = 2.0,
-                 enable_jitter: bool = True):
-        self.max_attempts = max_attempts
-        self.initial_backoff_ms = initial_backoff_ms
-        self.max_backoff_ms = max_backoff_ms
-        self.backoff_multiplier = backoff_multiplier
-        self.enable_jitter = enable_jitter
-        self.transient_statuses = {500, 502, 503, 504}
-        self.non_transient_statuses = {401, 403, 404}
+T = TypeVar('T')
 
-    async def run(self, func: Callable[..., Coroutine[Any, Any, Any]], *args, **kwargs) -> Any:
-        attempt = 0
-        backoff = self.initial_backoff_ms
-        while attempt < self.max_attempts:
-            try:
-                return await func(*args, **kwargs)
-            except Exception as exc:
-                # If exc has a status_code attribute (e.g., HTTPException), inspect it
-                status = getattr(exc, "status_code", None)
-                if status in self.non_transient_statuses:
-                    raise
-                attempt += 1
-                if attempt >= self.max_attempts:
-                    raise
-                # compute backoff with jitter
-                delay_ms = backoff
-                if self.enable_jitter:
-                    jitter_factor = random.uniform(0.8, 1.2)
-                    delay_ms = int(delay_ms * jitter_factor)
-                await asyncio.sleep(delay_ms / 1000.0)
-                backoff = min(int(backoff * self.backoff_multiplier), self.max_backoff_ms)
+class RetryError(Exception):
+    """Raised when all retry attempts are exhausted."""
+    def __init__(self, last_exception: Exception, attempts: int):
+        super().__init__(f"Operation failed after {attempts} attempts")
+        self.last_exception = last_exception
+        self.attempts = attempts
+
+async def retry(
+    func: Callable[..., Awaitable[T]],
+    *args,
+    max_attempts: int = 5,
+    initial_backoff: float = 0.1,  # seconds
+    max_backoff: float = 5.0,
+    backoff_multiplier: float = 2.0,
+    jitter: bool = True,
+    retry_exceptions: Tuple[Type[BaseException], ...] = (Exception,),
+    **kwargs,
+) -> T:
+    """
+    Execute a coroutine with retry logic.
+
+    Args:
+        func: Async callable to retry.
+        *args, **kwargs: Arguments passed to func.
+        max_attempts: Maximum number of attempts (including first try).
+        initial_backoff: Initial delay in seconds.
+        max_backoff: Maximum delay between attempts.
+        backoff_multiplier: Multiplier for exponential backoff.
+        jitter: If True, adds random jitter to prevent thundering herd.
+        retry_exceptions: Tuple of exception types to catch and retry.
+                          Any other exception will be raised immediately.
+
+    Returns:
+        The result of the function call.
+
+    Raises:
+        RetryError: If all attempts fail.
+        Any exception not in ``retry_exceptions`` is propagated immediately.
+    """
+    attempt = 0
+    backoff = initial_backoff
+    while True:
+        try:
+            return await func(*args, **kwargs)
+        except retry_exceptions as e:
+            attempt += 1
+            if attempt >= max_attempts:
+                raise RetryError(e, attempt) from e
+            # Compute delay with exponential backoff
+            delay = min(backoff * (backoff_multiplier ** (attempt - 1)), max_backoff)
+            if jitter:
+                # Full jitter: random delay between 0 and `delay`
+                delay = random.uniform(0, delay)
+            await asyncio.sleep(delay)
+        except Exception as e:
+            # Non-retriable exception
+            raise
