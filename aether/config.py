@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     api_keys: str = Field("sk-demo123", alias="API_KEYS")
     rate_limit_rps: int = Field(100, alias="RATE_LIMIT_RPS")
     gateway_timeout: float = Field(30.0, alias="GATEWAY_TIMEOUT")
+    health_check_timeout: float = Field(5.0, alias="HEALTH_CHECK_TIMEOUT")
+    stream_timeout: float = Field(120.0, alias="STREAM_TIMEOUT")
     gateway_cache_size: int = Field(1000, alias="GATEWAY_CACHE_SIZE")
 
     ollama_endpoint: str = Field("http://localhost:11434", alias="OLLAMA_ENDPOINT")
