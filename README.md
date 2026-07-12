@@ -183,4 +183,4 @@ The test suite includes live integration tests (`test_gateway_endpoints.py`) tha
 
 ## License
 
-MIT  LICENSE
+[LICENSE.md](LICENSE.md)
