@@ -1,4 +1,4 @@
-# AETHER - Python LLM Gateway
+# AETHER - LLM Gateway
 
 AETHER is a Python/FastAPI reverse proxy for LLM inference. It sits between client applications and model backends (Ollama, HuggingFace), adding backend choice per request, resilience (circuit breaker, retry with backoff, timeouts), authentication, per-client rate limiting, KV-cache block allocation, audit logging, and Prometheus metrics.
 
