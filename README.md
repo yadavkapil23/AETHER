@@ -1,6 +1,6 @@
 # AETHER - LLM Gateway
 
-AETHER is a Python/FastAPI reverse proxy for LLM inference. It sits between client applications and model backends (Ollama, HuggingFace), adding backend choice per request, resilience (circuit breaker, retry with backoff, timeouts), authentication, per-client rate limiting, KV-cache block allocation, audit logging, and Prometheus metrics.
+AETHER is a Python/FastAPI reverse proxy for LLM inference. It sits between client applications and model backends (Ollama, HuggingFace), adding backend choice per request, resilience (circuit breaker, retry with backoff, timeouts), authentication, Prometheus metrics.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together and the use cases this is built for.
 
@@ -154,10 +154,6 @@ curl -X POST http://localhost:8080/v1/allocate `
 | POST | `/infer` | required only if `backend: "huggingface"` | Synchronous LLM inference |
 | POST | `/infer/stream` | required only if `backend: "huggingface"` (and then rejected with 400 — streaming is Ollama-only) | SSE streaming inference |
 | POST | `/v1/chat/completions` | required only if `backend: "huggingface"` | OpenAI-style chat completion |
-| POST | `/v1/allocate` | required | Allocate KV-cache blocks |
-| POST | `/v1/deallocate` | required | Release KV-cache blocks |
-| GET | `/v1/stats` | required | Cache statistics |
-| GET | `/v1/cluster` | required | Scheduler health (single-node; not a real cluster) |
 | GET | `/backends/status` | required | Backend health and circuit breaker state |
 | GET | `/health` | none | Full health report |
 | GET | `/health/live` | none | Liveness probe |
