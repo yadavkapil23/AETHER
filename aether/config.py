@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
     jwt_secret: str = Field("change-me-in-production", alias="JWT_SECRET")
     api_keys: str = Field("sk-demo123", alias="API_KEYS")
-    rate_limit_rps: int = Field(100, alias="RATE_LIMIT_RPS")
+    rate_limit_rps: int = Field(7, alias="RATE_LIMIT_RPS")
     gateway_timeout: float = Field(30.0, alias="GATEWAY_TIMEOUT")
     health_check_timeout: float = Field(5.0, alias="HEALTH_CHECK_TIMEOUT")
     stream_timeout: float = Field(120.0, alias="STREAM_TIMEOUT")
