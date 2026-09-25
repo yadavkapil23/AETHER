@@ -8,7 +8,6 @@ AETHER is a reverse proxy for LLM inference. Nobody talks to Ollama or HuggingFa
 Client → AETHER → Ollama (local, no external auth)
                  → HuggingFace (external API, needs HUGGINGFACE_API_KEY)
 ```
-
 AETHER does not train, fine-tune, or improve any model. The text generation quality is entirely whatever Ollama or HuggingFace already produce. What AETHER adds is everything *around* that call: reliability, access control, and observability.
 
 ## Diagrams
