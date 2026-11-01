@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aether-config
+data:
+  GATEWAY_HOST: "0.0.0.0"
+  GATEWAY_PORT: "8080"
+  RATE_LIMIT_RPS: "100"
+  GATEWAY_TIMEOUT: "30"
+  GATEWAY_CACHE_SIZE: "1000"
+  OLLAMA_ENDPOINT: "http://ollama:11434"
+  HUGGINGFACE_ENDPOINT: "https://api-inference.huggingface.co/models"
+  AETHER_CACHE_BYTES: "67108864"
+  AETHER_BLOCK_SIZE: "16384"
+  SCHEDULER_MODE: "inprocess"
+  LOG_LEVEL: "info"
