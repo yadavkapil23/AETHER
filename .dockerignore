@@ -1,0 +1,15 @@
+.git/
+.github/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.log
+.env
+.env.local
+.env.*.local
+.DS_Store
+.vscode/
+.idea/
+tests_python/
