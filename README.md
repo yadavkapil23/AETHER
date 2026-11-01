@@ -13,7 +13,6 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together and the u
 - Configurable timeouts per operation (`GATEWAY_TIMEOUT`, `HEALTH_CHECK_TIMEOUT`, `STREAM_TIMEOUT`) plus a reusable `with_timeout()` helper
 - API key and JWT verification (JWT issuance is not implemented — see [ARCHITECTURE.md](ARCHITECTURE.md))
 - Per-client token-bucket rate limiting, keyed on `X-API-Key`, then `X-Client-Id`, then falling back to IP
-- A minimal local web UI at `/` for sending prompts without curl
 - In-process KV-cache block scheduler (single machine; not distributed)
 - Optional standalone scheduler API (`scheduler_api.py`) — not wired into the main gateway by default
 - BLAKE3 audit hash chain (in-memory only unless PostgreSQL is connected)
@@ -36,7 +35,6 @@ aether/
   scheduler.py                   KV-cache block allocator (single-node)
   scheduler_api.py               standalone scheduler HTTP API (separate process, not auto-used by gateway.py)
   security.py                    API key/JWT validation, rate limiting, security headers
-  static/index.html              local web UI served at "/"
   resilience/
     circuit_breaker.py           3-state circuit breaker
     retry_handler.py             exponential backoff + jitter
@@ -150,7 +148,6 @@ curl -X POST http://localhost:8080/v1/allocate `
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| GET | `/` | none | Local web UI for sending prompts |
 | POST | `/infer` | required only if `backend: "huggingface"` | Synchronous LLM inference |
 | POST | `/infer/stream` | required only if `backend: "huggingface"` (and then rejected with 400 — streaming is Ollama-only) | SSE streaming inference |
 | POST | `/v1/chat/completions` | required only if `backend: "huggingface"` | OpenAI-style chat completion |

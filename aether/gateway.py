@@ -3,14 +3,12 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import httpx
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
-    FileResponse,
     JSONResponse,
     Response,
     StreamingResponse,
@@ -121,12 +119,6 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         fail_closed=settings.rate_limit_fail_closed,
         metrics=state.metrics,
     )
-
-    static_dir = Path(__file__).parent / "static"
-
-    @app.get("/", include_in_schema=False)
-    async def ui_index() -> FileResponse:
-        return FileResponse(static_dir / "index.html")
 
     async def require_auth(request: Request) -> None:
         await request.app.state.aether.auth.validate(request)

@@ -163,12 +163,6 @@ Metrics:
 Invoke-WebRequest http://127.0.0.1:8080/metrics
 ```
 
-Open the local web UI in a browser:
-
-```text
-http://localhost:8080/
-```
-
 ## Run Ollama inference through AETHER
 
 ```powershell
