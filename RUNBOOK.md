@@ -59,6 +59,8 @@ Make sure Docker Desktop is running, then start the stack:
 docker compose up -d --build
 ```
 
+Do not also start a local gateway on port `8080` while the Compose gateway is running. Choose either the Compose gateway or the local Python gateway section below.
+
 The stack contains:
 
 - Gateway: `http://localhost:8080`
@@ -76,7 +78,7 @@ docker compose ps
 Check Redis:
 
 ```powershell
-docker exec aether-redis redis-cli ping
+docker compose exec redis redis-cli ping
 ```
 
 Expected output:
@@ -88,13 +90,30 @@ PONG
 Check PostgreSQL:
 
 ```powershell
-docker exec aether-postgres pg_isready -U postgres -d aether_gateway
+docker compose exec postgres pg_isready -U postgres -d aether_gateway
 ```
 
 Expected output includes:
 
 ```text
 accepting connections
+```
+
+Check Prometheus:
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:9090/-/ready
+```
+
+Open Prometheus at `http://localhost:9090`.
+
+Open Grafana at `http://localhost:3000`.
+
+The default local Grafana credentials from `docker-compose.yml` are:
+
+```text
+username: admin
+password: admin
 ```
 
 ## Start the gateway locally instead of in Docker
@@ -250,10 +269,11 @@ docker compose down -v
 
 The `-v` option deletes stored database data and should only be used when that data is no longer needed.
 
-If containers were started individually:
+If containers were started individually, stop only the containers that exist:
 
 ```powershell
-docker stop aether-postgres aether-redis aether-prometheus aether-grafana
+docker ps --format "{{.Names}}"
+docker stop <container-name>
 ```
 
 ## Important configuration
@@ -268,6 +288,14 @@ OLLAMA_ENDPOINT=http://localhost:11434
 RATE_LIMIT_RPS=7
 RATE_LIMIT_WINDOW_SECONDS=1
 RATE_LIMIT_FAIL_CLOSED=true
+```
+
+When the gateway runs inside Docker Compose, use the service names instead:
+
+```env
+REDIS_URL=redis://redis:6379/0
+DATABASE_URL=postgresql://postgres:password@postgres:5432/aether_gateway
+OLLAMA_ENDPOINT=http://host.docker.internal:11434
 ```
 
 For production, replace the default passwords, API keys, and JWT secret. Use a managed PostgreSQL instance, a protected Redis instance, TLS, secure secret storage, and a reverse proxy or load balancer.
